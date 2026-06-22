@@ -429,6 +429,20 @@ function renderTree(outputName) {
   flatFiles.slice(0,12).forEach(f => lines.push(`    <span class="tr-stream">${escHtml(f)}</span>`));
   if (flatFiles.length > 12) lines.push(`    <span style="color:#94a3b8">… +${flatFiles.length-12} more</span>`);
 
+  // Other/preserved files grouped by MLO subfolder
+  const otherByMlo = {};
+  for (const e of treeEntries) {
+    if (e.type === 'other') {
+      if (!otherByMlo[e.mlo]) otherByMlo[e.mlo] = [];
+      otherByMlo[e.mlo].push(e.path.replace(e.mlo + '/', ''));
+    }
+  }
+  for (const [mloName, files] of Object.entries(otherByMlo)) {
+    lines.push(`  <span class="tr-dir">${escHtml(mloName)}/  <span style="color:#d97706;font-size:10px;font-weight:normal">(preserved)</span></span>`);
+    files.slice(0,6).forEach(f => lines.push(`    <span class="tr-file">${escHtml(f)}</span>`));
+    if (files.length > 6) lines.push(`    <span style="color:#94a3b8">… +${files.length-6} more</span>`);
+  }
+
   const luaEntries = treeEntries.filter(e => e.type === 'client' || e.type === 'server' || e.type === 'lua');
   if (luaEntries.some(e => e.type === 'client')) {
     lines.push(`  <span class="tr-dir">client/</span>`);
@@ -585,10 +599,15 @@ async function startMerge() {
         fileCount++;
 
       } else {
-        // Not a stream type and not lua — log exactly what it is so user can see
-        dbg(`    ACTION: skipped — ext=".${ext}" not in STREAM_EXTS and not lua. Full path: "${innerPath}"`, 'd-warn');
-        log(`Skipped unrecognised type: ${fname} (.${ext})`, 'warn');
-        skipped++;
+        // Unknown/unrecognised type — preserve original relative path inside MLO folder
+        // e.g. [es-treehouse]/config/settings.json  innerPath="config/settings.json"
+        //   output: merged_mlo/es-treehouse/config/settings.json
+        const destPath = mloSafe + '/' + innerPath;
+        rootFolder.file(destPath, content);
+        log(`Preserved: ${fname} (.${ext}) → ${mloSafe}/${innerPath}`, 'info');
+        dbg(`    ACTION: preserved at ${destPath} (ext ".${ext}" not in STREAM_EXTS, keeping original path)`, 'd-warn');
+        treeEntries.push({ type:'other', mlo: mloSafe, path: destPath, fname, innerPath });
+        fileCount++;
       }
     }
 
@@ -640,7 +659,7 @@ function showSummary(files, skipped, conflicts, mloCount) {
   const grid = document.getElementById('summaryGrid');
   grid.style.display = 'grid';
   grid.innerHTML = [
-    [mloCount,'MLOs merged'],[files,'files merged'],[skipped,'skipped'],[conflicts,'conflicts']
+    [mloCount,'MLOs merged'],[files,'files added'],[skipped,'skipped/ignored'],[conflicts,'conflicts']
   ].map(([n,l]) => `<div class="stat"><div class="stat-num">${n}</div><div class="stat-lbl">${l}</div></div>`).join('');
 }
 
