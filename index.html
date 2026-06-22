@@ -1,30 +1,781 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2685.6">
-  <style type="text/css">
-    body {background-color: #f5f5f6}
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 24.0px 'Helvetica Neue'; color: #1d48e6; -webkit-text-stroke: #1d48e6; min-height: 28.0px}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 22.0px '.SF NS'; color: #0e0e0e; -webkit-text-stroke: #0e0e0e}
-    p.p3 {margin: 0.0px 0.0px 0.0px 34.0px; text-indent: -34.0px; font: 14.0px 'Helvetica Neue'; color: #585e6d; -webkit-text-stroke: #585e6d}
-    p.p4 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: center; font: 36.0px 'Helvetica Neue'; color: #585e6d; -webkit-text-stroke: #585e6d; min-height: 43.0px}
-    p.p5 {margin: 0.0px 0.0px 4.0px 0.0px; font: 15.0px '.SF NS'; color: #0e0e0e; -webkit-text-stroke: #0e0e0e}
-    p.p6 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: center; font: 13.0px 'Helvetica Neue'; color: #8a929f; -webkit-text-stroke: #8a929f; background-color: #ffffff}
-    span.s1 {font-kerning: none}
-    span.s2 {font-kerning: none; background-color: #f5f5f6}
-    span.s3 {font-kerning: none; background-color: #ffffff}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FiveM MLO Merger</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #ffffff;
+      --bg-secondary:#f7f7f8;
+      --bg-tertiary: #eeeeef;
+      --bg-info:     #eff6ff;
+      --bg-danger:   #fff1f2;
+      --text-primary:   #111111;
+      --text-secondary: #6b7280;
+      --text-tertiary:  #9ca3af;
+      --text-info:      #2563eb;
+      --text-danger:    #dc2626;
+      --border:      #e5e7eb;
+      --border-light:#f0f0f0;
+      --radius-sm:   6px;
+      --radius-md:   10px;
+      --radius-lg:   14px;
+      --font-sans:   -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --font-mono:   "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 1.75rem;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    h1 .ti {
+      font-size: 24px;
+      color: var(--text-info);
+    }
+    .sub {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-left: 34px;
+    }
+
+    /* ── Drop Zone ── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+      background: var(--bg);
+      margin-bottom: 1rem;
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      background: var(--bg-info);
+      border-color: #93c5fd;
+    }
+    .drop-zone .ti {
+      font-size: 36px;
+      color: var(--text-secondary);
+      display: block;
+      margin-bottom: .75rem;
+    }
+    .drop-zone p {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .drop-zone span {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    input[type=file] { display: none; }
+
+    /* ── MLO Cards ── */
+    .mlo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 1.25rem;
+    }
+    .mlo-card {
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: .75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    .mlo-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: var(--bg-info);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .mlo-icon .ti {
+      font-size: 20px;
+      color: var(--text-info);
+    }
+    .mlo-info { flex: 1; min-width: 0; }
+    .mlo-name {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mlo-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .file-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 5px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .tag-ydr  { background: #dbeafe; color: #1d4ed8; }
+    .tag-ydt  { background: #dcfce7; color: #15803d; }
+    .tag-ybn  { background: #ffedd5; color: #c2410c; }
+    .tag-ytyp { background: #ede9fe; color: #6d28d9; }
+    .tag-lua  { background: #fee2e2; color: #b91c1c; }
+    .tag-other{ background: #f3f4f6; color: #374151; }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      transition: background .12s, color .12s;
+      font-size: 18px;
+    }
+    .remove-btn:hover {
+      color: var(--text-danger);
+      background: var(--bg-danger);
+    }
+
+    /* ── Config Section ── */
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: .6rem;
+      margin-top: 1.25rem;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+    .option-card {
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: .75rem 1rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    }
+    .option-card label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .option-card input,
+    .option-card select {
+      width: 100%;
+      font-size: 13px;
+      font-family: var(--font-sans);
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .option-card input:focus,
+    .option-card select:focus {
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+    }
+
+    /* ── Buttons ── */
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: .6rem 1.25rem;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .82; }
+    .btn-primary:disabled { opacity: .38; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: .6rem 1.25rem;
+      font-size: 14px;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: background .12s;
+    }
+    .btn-secondary:hover { background: var(--bg-secondary); }
+
+    /* ── Log Panel ── */
+    .log-panel {
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.75;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .log-line { display: flex; gap: 8px; }
+    .log-line.ok   .dot { color: #16a34a; }
+    .log-line.warn .dot { color: #d97706; }
+    .log-line.err  .dot { color: #dc2626; }
+    .log-line.info .dot { color: #2563eb; }
+
+    /* ── Progress ── */
+    .progress-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--bg-tertiary);
+      margin: 1rem 0 .75rem;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #111;
+      width: 0%;
+      transition: width .3s ease;
+    }
+
+    /* ── Summary Grid ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 1rem;
+    }
+    .stat {
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: .875rem;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    /* ── Download Row ── */
+    .download-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      margin-top: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    .download-row .ti {
+      font-size: 30px;
+      color: var(--text-info);
+      flex-shrink: 0;
+    }
+    .download-row .dl-info { flex: 1; }
+    .download-row .dl-name { font-size: 14px; font-weight: 500; }
+    .download-row .dl-size { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    .empty {
+      text-align: center;
+      padding: 1rem;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    @media (max-width: 500px) {
+      .options-grid { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
   </style>
 </head>
 <body>
-<p class="p1"><span class="s1"></span><br></p>
-<p class="p2"><span class="s2"><b>FiveM MLO Merger</b><b></b></span></p>
-<p class="p3"><span class="s2">Drop multiple MLO resource zips to merge them into one deployable resource</span></p>
-<p class="p4"><span class="s1"></span><br></p>
-<p class="p5"><span class="s3">Drop MLO zip files here</span></p>
-<p class="p6"><span class="s1">Supports: .zip archives containing MLO resource files</span></p>
+
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>
+      <i class="ti ti-layers-intersect" aria-hidden="true"></i>
+      FiveM MLO Merger
+    </h1>
+    <p class="sub">Drop multiple MLO resource zips to merge them into one deployable resource</p>
+  </div>
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+    <p>Drop MLO zip files here</p>
+    <span>Supports: .zip archives containing MLO resource files</span>
+    <input type="file" id="fileInput" multiple accept=".zip,.ydr,.ydt,.ybn,.ytyp,.lua">
+  </div>
+
+  <!-- MLO list -->
+  <div class="mlo-list" id="mloList"></div>
+
+  <!-- Config Section -->
+  <div id="configSection" style="display:none">
+    <div class="section-label">Merge settings</div>
+    <div class="options-grid">
+      <div class="option-card">
+        <label>Output resource name</label>
+        <input type="text" id="outputName" value="merged_mlo" placeholder="merged_mlo">
+      </div>
+      <div class="option-card">
+        <label>Conflict resolution</label>
+        <select id="conflictMode">
+          <option value="prefix">Prefix filenames with MLO name</option>
+          <option value="override">Last file wins</option>
+          <option value="skip">Skip duplicates</option>
+        </select>
+      </div>
+      <div class="option-card">
+        <label>Stream folder structure</label>
+        <select id="streamMode">
+          <option value="flat">Flat (all in /stream)</option>
+          <option value="sub">Subfolders per MLO</option>
+        </select>
+      </div>
+      <div class="option-card">
+        <label>fxmanifest.lua version</label>
+        <select id="fxVersion">
+          <option value="cerulean">cerulean</option>
+          <option value="bodacious">bodacious</option>
+          <option value="adamant">adamant</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="mergeBtn" onclick="startMerge()">
+        <i class="ti ti-git-merge" aria-hidden="true"></i> Merge MLOs
+      </button>
+      <button class="btn-secondary" onclick="clearAll()">
+        <i class="ti ti-trash" aria-hidden="true"></i> Clear all
+      </button>
+    </div>
+  </div>
+
+  <!-- Log Section -->
+  <div id="logSection" style="display:none">
+    <div class="section-label">Merge log</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="log-panel" id="logPanel"></div>
+    <div class="summary-grid" id="summaryGrid" style="display:none"></div>
+
+    <div id="downloadSection" style="display:none">
+      <div class="section-label" style="margin-top:1.25rem">Output</div>
+      <div class="download-row">
+        <i class="ti ti-file-zip" aria-hidden="true"></i>
+        <div class="dl-info">
+          <div class="dl-name" id="dlName">merged_mlo.zip</div>
+          <div class="dl-size" id="dlSize">Ready to download</div>
+        </div>
+        <button class="btn-primary" onclick="downloadResult()">
+          <i class="ti ti-download" aria-hidden="true"></i> Download
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+let mlos = [];
+let mergedZip = null;
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => { handleFiles([...fileInput.files]); fileInput.value = ''; });
+
+function getExt(name) { return name.split('.').pop().toLowerCase(); }
+
+function tagClass(ext) {
+  const m = { ydr:'tag-ydr', ydt:'tag-ydt', ybn:'tag-ybn', ytyp:'tag-ytyp', lua:'tag-lua' };
+  return m[ext] || 'tag-other';
+}
+
+async function handleFiles(files) {
+  for (const file of files) {
+    const ext = getExt(file.name);
+    if (ext === 'zip') {
+      await loadZip(file);
+    } else {
+      addLooseFile(file);
+    }
+  }
+  renderList();
+}
+
+async function loadZip(file) {
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const fileList = [];
+    zip.forEach((path, zf) => { if (!zf.dir) fileList.push({ path, zf }); });
+    const exts = {};
+    for (const {path} of fileList) {
+      const e = getExt(path);
+      exts[e] = (exts[e] || 0) + 1;
+    }
+    mlos.push({ name: file.name.replace(/\.zip$/i, ''), type: 'zip', zip, fileList, exts, size: file.size });
+  } catch(e) {
+    alert('Could not read zip: ' + file.name + '\n' + e.message);
+  }
+}
+
+function addLooseFile(file) {
+  const ext = getExt(file.name);
+  const existing = mlos.find(m => m.type === 'loose');
+  if (existing) {
+    existing.fileList.push({ path: file.name, file });
+    existing.exts[ext] = (existing.exts[ext] || 0) + 1;
+    existing.size += file.size;
+  } else {
+    const exts = {}; exts[ext] = 1;
+    mlos.push({ name: 'loose_files', type: 'loose', fileList: [{ path: file.name, file }], exts, size: file.size });
+  }
+}
+
+function renderList() {
+  const list = document.getElementById('mloList');
+  if (mlos.length === 0) {
+    list.innerHTML = '';
+    document.getElementById('configSection').style.display = 'none';
+    return;
+  }
+  list.innerHTML = mlos.map((m, i) => `
+    <div class="mlo-card">
+      <div class="mlo-icon"><i class="ti ti-building-arch" aria-hidden="true"></i></div>
+      <div class="mlo-info">
+        <div class="mlo-name">${escHtml(m.name)}</div>
+        <div class="mlo-meta">${m.fileList.length} files &middot; ${formatSize(m.size)}</div>
+        <div class="file-tags">
+          ${Object.entries(m.exts).slice(0, 6).map(([e, c]) =>
+            `<span class="tag ${tagClass(e)}">.${e} &times;${c}</span>`
+          ).join('')}
+        </div>
+      </div>
+      <button class="remove-btn" onclick="removeMlo(${i})" aria-label="Remove ${escHtml(m.name)}">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+  `).join('');
+  document.getElementById('configSection').style.display = 'block';
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function removeMlo(i) { mlos.splice(i, 1); renderList(); }
+
+function clearAll() {
+  mlos = [];
+  mergedZip = null;
+  renderList();
+  document.getElementById('logSection').style.display = 'none';
+}
+
+function formatSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return Math.round(b / 1024) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function log(msg, type = 'info') {
+  const panel = document.getElementById('logPanel');
+  const symbols = { ok: '●', warn: '◆', err: '✖', info: '›' };
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.innerHTML = `<span class="dot">${symbols[type] || '›'}</span><span>${escHtml(msg)}</span>`;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function setProgress(p) {
+  document.getElementById('progressFill').style.width = Math.min(100, p) + '%';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startMerge() {
+  if (mlos.length < 1) return;
+  const btn = document.getElementById('mergeBtn');
+  btn.disabled = true;
+
+  document.getElementById('logSection').style.display = 'block';
+  document.getElementById('logPanel').innerHTML = '';
+  document.getElementById('summaryGrid').style.display = 'none';
+  document.getElementById('downloadSection').style.display = 'none';
+  setProgress(0);
+
+  const outputName = document.getElementById('outputName').value.trim() || 'merged_mlo';
+  const conflictMode = document.getElementById('conflictMode').value;
+  const streamMode = document.getElementById('streamMode').value;
+  const fxVersion = document.getElementById('fxVersion').value;
+
+  const out = new JSZip();
+  const rootFolder = out.folder(outputName);
+  const streamFolder = rootFolder.folder('stream');
+
+  let fileCount = 0, skipped = 0, conflicts = 0;
+  const seenNames = new Set();
+  const streamFiles = [];
+  const clientScripts = [];
+  const serverScripts = [];
+
+  log(`Starting merge of ${mlos.length} MLO(s) into "${outputName}"`, 'info');
+  await delay(80);
+
+  const total = mlos.reduce((s, m) => s + m.fileList.length, 0);
+  let done = 0;
+
+  for (const mlo of mlos) {
+    log(`Processing: ${mlo.name} (${mlo.fileList.length} files)`, 'info');
+    await delay(50);
+
+    for (const {path, zf, file} of mlo.fileList) {
+      done++;
+      setProgress((done / total) * 85);
+
+      const fname = path.split('/').pop();
+      const ext = getExt(fname);
+      const isStream = ['ydr','ydt','ybn','ytyp','ycd','ydd','ytd','ymap','ymf'].includes(ext);
+      const isClientLua = path.toLowerCase().includes('client') && ext === 'lua';
+      const isServerLua = path.toLowerCase().includes('server') && ext === 'lua';
+
+      let content;
+      try {
+        if (zf)   content = await zf.async('arraybuffer');
+        else if (file) content = await file.arrayBuffer();
+        else continue;
+      } catch(e) {
+        log(`Could not read: ${fname}`, 'warn');
+        skipped++;
+        continue;
+      }
+
+      if (isStream) {
+        let outName = fname;
+        if (conflictMode === 'prefix') {
+          outName = mlo.name.replace(/[^a-zA-Z0-9_]/g, '_') + '_' + fname;
+        }
+
+        if (seenNames.has(outName)) {
+          if (conflictMode === 'skip')     { log(`Skipped duplicate: ${outName}`, 'warn'); skipped++; continue; }
+          if (conflictMode === 'override') { log(`Overriding: ${outName}`, 'warn'); conflicts++; }
+          if (conflictMode === 'prefix')   { outName = mlo.name.replace(/[^a-zA-Z0-9_]/g,'_') + '_' + Date.now() + '_' + fname; conflicts++; }
+        }
+        seenNames.add(outName);
+
+        const dest = streamMode === 'sub' ? streamFolder.folder(mlo.name) : streamFolder;
+        dest.file(outName, content);
+        streamFiles.push(streamMode === 'sub' ? `stream/${mlo.name}/${outName}` : `stream/${outName}`);
+        fileCount++;
+
+      } else if (ext === 'lua' && fname !== 'fxmanifest.lua') {
+        const safeName = mlo.name.replace(/[^a-zA-Z0-9_]/g, '_') + '_' + fname;
+        if (isClientLua) {
+          rootFolder.folder('client').file(safeName, content);
+          clientScripts.push(`client/${safeName}`);
+        } else if (isServerLua) {
+          rootFolder.folder('server').file(safeName, content);
+          serverScripts.push(`server/${safeName}`);
+        } else {
+          rootFolder.file(safeName, content);
+        }
+        fileCount++;
+      }
+    }
+    log(`✓ ${mlo.name}: done`, 'ok');
+    await delay(30);
+  }
+
+  setProgress(90);
+  log('Generating fxmanifest.lua...', 'info');
+  await delay(60);
+  rootFolder.file('fxmanifest.lua', buildManifest(outputName, fxVersion, clientScripts, serverScripts, streamMode));
+
+  log('Generating README.md...', 'info');
+  rootFolder.file('README.md', buildReadme(outputName, mlos, fileCount, streamFiles.length));
+
+  setProgress(95);
+  log('Compressing output...', 'info');
+  await delay(60);
+
+  try {
+    const blob = await out.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    mergedZip = blob;
+    setProgress(100);
+    log(`Merge complete! ${fileCount} files merged, ${skipped} skipped, ${conflicts} conflicts resolved`, 'ok');
+    await delay(100);
+    showSummary(fileCount, skipped, conflicts, mlos.length, blob.size);
+    document.getElementById('dlName').textContent = outputName + '.zip';
+    document.getElementById('dlSize').textContent = formatSize(blob.size) + ' · Ready to download';
+    document.getElementById('downloadSection').style.display = 'block';
+  } catch(e) {
+    log('Compression failed: ' + e.message, 'err');
+  }
+  btn.disabled = false;
+}
+
+function showSummary(files, skipped, conflicts, mloCount) {
+  const grid = document.getElementById('summaryGrid');
+  grid.style.display = 'grid';
+  grid.innerHTML = [
+    [mloCount,  'MLOs merged'],
+    [files,     'files processed'],
+    [skipped,   'skipped'],
+    [conflicts, 'conflicts'],
+  ].map(([n, l]) => `
+    <div class="stat">
+      <div class="stat-num">${n}</div>
+      <div class="stat-lbl">${l}</div>
+    </div>
+  `).join('');
+}
+
+function buildManifest(name, ver, client, server, streamMode) {
+  const lines = [
+    `fx_version '${ver}'`,
+    `game 'gta5'`,
+    ``,
+    `name '${name}'`,
+    `description 'Merged MLO resource — generated by FiveM MLO Merger'`,
+    `version '1.0.0'`,
+    ``,
+  ];
+  if (client.length) {
+    lines.push(`client_scripts {`);
+    client.forEach(f => lines.push(`  '${f}',`));
+    lines.push(`}`);
+    lines.push('');
+  }
+  if (server.length) {
+    lines.push(`server_scripts {`);
+    server.forEach(f => lines.push(`  '${f}',`));
+    lines.push(`}`);
+    lines.push('');
+  }
+  if (streamMode === 'flat') {
+    lines.push(`data_file 'DLC_ITYP_REQUEST' 'stream/*.ytyp'`);
+  } else {
+    lines.push(`data_file 'DLC_ITYP_REQUEST' 'stream/**/*.ytyp'`);
+  }
+  return lines.join('\n');
+}
+
+function buildReadme(name, mlos, total, streamCount) {
+  return [
+    `# ${name}`,
+    ``,
+    `Merged MLO resource generated by FiveM MLO Merger.`,
+    ``,
+    `## Included MLOs`,
+    ...mlos.map(m => `- ${m.name} (${m.fileList.length} files)`),
+    ``,
+    `## Stats`,
+    `- Total files merged: ${total}`,
+    `- Stream files: ${streamCount}`,
+    ``,
+    `## Installation`,
+    `1. Place the \`${name}\` folder in your FiveM \`resources\` directory`,
+    `2. Add \`ensure ${name}\` to your \`server.cfg\``,
+    `3. Restart or start the resource`,
+  ].join('\n');
+}
+
+function downloadResult() {
+  if (!mergedZip) return;
+  const name = document.getElementById('outputName').value.trim() || 'merged_mlo';
+  const url = URL.createObjectURL(mergedZip);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+</script>
 </body>
 </html>
