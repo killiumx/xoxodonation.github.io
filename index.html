@@ -215,6 +215,8 @@ let debugLines = [];
 let treeEntries = [];
 
 // ALL known GTA5/FiveM stream-able file extensions (lowercase — getExt always lowercases)
+// NOTE: .meta is NOT added here — interiorproxies.meta needs special data_file handling,
+// not just streaming. We detect it explicitly and register it in the manifest.
 const STREAM_EXTS = new Set([
   'ydr','ydt','ybn','ytyp','ycd','ydd','ytd','ymap','ymf',
   'ynd','ynv','yft','yld','ypt','yed','ymt',
@@ -488,6 +490,7 @@ async function startMerge() {
   const seenStreamNames = new Set(); // key = "mloName/fname" for sub, "fname" for flat
   const clientScripts = [];
   const serverScripts = [];
+  let hasInteriorProxies = false; // track if any MLO contains interiorproxies.meta
 
   log(`Merging ${mlos.length} MLO(s) → "${outputName}"`, 'info');
   dbg(`=== MERGE START ===`, 'd-head');
@@ -521,6 +524,9 @@ async function startMerge() {
       const isClientLua = ext === 'lua' && (lp.includes('/client/') || lp.startsWith('client/') || fname.toLowerCase().includes('client'));
       const isServerLua = ext === 'lua' && !isClientLua && (lp.includes('/server/') || lp.startsWith('server/') || fname.toLowerCase().includes('server'));
       const isManifest  = fname === 'fxmanifest.lua' || fname === '__resource.lua';
+      // interiorproxies.meta — needs special data_file registration in the manifest,
+      // and must be placed directly in stream/ (not in a subfolder) so FiveM finds it.
+      const isInteriorProxy = fname.toLowerCase() === 'interiorproxies.meta';
 
       dbg(`  FILE: "${innerPath}"`, '');
       dbg(`    ext=${ext} | isStream=${isStream} | isClientLua=${isClientLua} | isServerLua=${isServerLua} | isManifest=${isManifest}`, '');
@@ -543,6 +549,21 @@ async function startMerge() {
       if (isManifest) {
         dbg(`    ACTION: skipped (manifest)`, 'd-skip');
         skipped++;
+        continue;
+      }
+
+      // ── interiorproxies.meta — merge all entries into one canonical file in stream/ ──
+      if (isInteriorProxy) {
+        hasInteriorProxies = true;
+        // Decode the XML and extract <Item> entries to merge later
+        const decoder = new TextDecoder('utf-8');
+        const text = decoder.decode(content);
+        // Store the raw text on the mlo object for later merging
+        if (!mlo._interiorProxyXml) mlo._interiorProxyXml = [];
+        mlo._interiorProxyXml.push(text);
+        dbg(`    ACTION: queued interiorproxies.meta for merge (${content.byteLength} bytes)`, 'd-ok');
+        log(`Queued interiorproxies.meta from ${mlo.name}`, 'info');
+        fileCount++;
         continue;
       }
 
@@ -617,13 +638,44 @@ async function startMerge() {
   }
 
   setProgress(90);
+
+  // ── Merge all interiorproxies.meta XML files into one ──
+  if (hasInteriorProxies) {
+    log('Merging interiorproxies.meta entries...', 'info');
+    dbg(`\n=== MERGING interiorproxies.meta ===`, 'd-head');
+    const allItems = [];
+    for (const mlo of mlos) {
+      if (!mlo._interiorProxyXml) continue;
+      for (const xml of mlo._interiorProxyXml) {
+        // Extract all <Item> ... </Item> blocks from the file
+        const matches = xml.match(/<Item>[\s\S]*?<\/Item>/g) || [];
+        dbg(`  ${mlo.name}: found ${matches.length} <Item> entries`, 'd-ok');
+        allItems.push(...matches);
+      }
+    }
+    // Build merged interiorproxies.meta with all items combined
+    const mergedMeta = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<CInteriorProxyOrderFile>`,
+      `  <InteriorProxyOrders>`,
+      ...allItems.map(item => `    ` + item.trim()),
+      `  </InteriorProxyOrders>`,
+      `</CInteriorProxyOrderFile>`,
+    ].join('\n');
+    // Place merged file directly in stream/ so the data_file glob finds it
+    streamFolder.file('interiorproxies.meta', mergedMeta);
+    log(`✓ Merged ${allItems.length} interior proxy entries`, 'ok');
+    dbg(`Merged interiorproxies.meta written to stream/interiorproxies.meta`, 'd-ok');
+    treeEntries.push({ type:'stream-flat', fname: 'interiorproxies.meta' });
+  }
+
   log('Generating fxmanifest.lua...', 'info');
   dbg(`\n=== BUILDING MANIFEST ===`, 'd-head');
   dbg(`clientScripts: [${clientScripts.join(', ')}]`, '');
   dbg(`serverScripts: [${serverScripts.join(', ')}]`, '');
   dbg(`streamMode: ${streamMode}`, '');
   await delay(50);
-  const manifest = buildManifest(outputName, fxVersion, clientScripts, serverScripts, streamMode);
+  const manifest = buildManifest(outputName, fxVersion, clientScripts, serverScripts, streamMode, hasInteriorProxies);
   rootFolder.file('fxmanifest.lua', manifest);
   dbg(`Manifest written:\n${manifest}`, 'd-ok');
 
@@ -664,7 +716,13 @@ function showSummary(files, skipped, conflicts, mloCount) {
 }
 
 /* ─────────── fxmanifest.lua ─────────── */
-function buildManifest(name, ver, client, server, streamMode) {
+function buildManifest(name, ver, client, server, streamMode, hasInteriorProxies) {
+  const ytypGlob = streamMode === 'flat' ? `stream/*.ytyp` : `stream/**/*.ytyp`;
+  const ytdGlob  = streamMode === 'flat' ? `stream/*.ytd`  : `stream/**/*.ytd`;
+  const ydrGlob  = streamMode === 'flat' ? `stream/*.ydr`  : `stream/**/*.ydr`;
+  const ybnGlob  = streamMode === 'flat' ? `stream/*.ybn`  : `stream/**/*.ybn`;
+  const ymapGlob = streamMode === 'flat' ? `stream/*.ymap` : `stream/**/*.ymap`;
+
   const lines = [
     `fx_version '${ver}'`,
     `game 'gta5'`,
@@ -673,7 +731,29 @@ function buildManifest(name, ver, client, server, streamMode) {
     `description 'Merged MLO resource — generated by FiveM MLO Merger'`,
     `version '1.0.0'`,
     ``,
+    `-- Required: tells FiveM this resource contains map/interior data`,
+    `this_is_a_map 'yes'`,
+    ``,
+    `-- Stream all asset types so FiveM loads them correctly`,
+    `files {`,
+    `  '${ytypGlob}',`,
+    `  '${ytdGlob}',`,
+    `  '${ydrGlob}',`,
+    `  '${ybnGlob}',`,
+    `  '${ymapGlob}',`,
   ];
+
+  if (hasInteriorProxies) {
+    if (streamMode === 'flat') {
+      lines.push(`  'stream/interiorproxies.meta',`);
+    } else {
+      lines.push(`  'stream/**/interiorproxies.meta',`);
+    }
+  }
+
+  lines.push(`}`);
+  lines.push(``);
+
   if (client.length) {
     lines.push(`client_scripts {`);
     client.forEach(f => lines.push(`  '${f}',`));
@@ -686,12 +766,22 @@ function buildManifest(name, ver, client, server, streamMode) {
     lines.push(`}`);
     lines.push('');
   }
-  // DLC_ITYP_REQUEST for .ytyp files
-  if (streamMode === 'flat') {
-    lines.push(`data_file 'DLC_ITYP_REQUEST' 'stream/*.ytyp'`);
-  } else {
-    lines.push(`data_file 'DLC_ITYP_REQUEST' 'stream/**/*.ytyp'`);
+
+  // DLC_ITYP_REQUEST — REQUIRED for interiors to render (archetypes must be explicitly requested)
+  lines.push(`-- DLC_ITYP_REQUEST is critical: without it the game streams the YMAP`);
+  lines.push(`-- but never loads the interior archetypes, causing empty/invisible rooms`);
+  lines.push(`data_file 'DLC_ITYP_REQUEST' '${ytypGlob}'`);
+
+  if (hasInteriorProxies) {
+    lines.push(``);
+    lines.push(`-- Interior proxies fix player visibility issues inside MLOs`);
+    if (streamMode === 'flat') {
+      lines.push(`data_file 'INTERIOR_PROXY_ORDER_FILE' 'stream/interiorproxies.meta'`);
+    } else {
+      lines.push(`data_file 'INTERIOR_PROXY_ORDER_FILE' 'stream/**/interiorproxies.meta'`);
+    }
   }
+
   return lines.join('\n');
 }
 
